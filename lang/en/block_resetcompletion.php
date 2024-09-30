@@ -28,6 +28,6 @@ $string['resetcompletion:myaddinstance'] = 'Add a new reset completion block to 
 $string['resetconfirm'] = 'Reset course completion';
 $string['resetdescription'] = 'Reset all course completion data, including module data such as scorm attempts, certificates issued, etc';
 $string['resetcontenttext'] = 'Click the link below to reset completion data for this course.';
-$string['resetincompletetext'] = 'You have not completed the course yet';
+$string['resetincompletetext'] = 'You have not completed the course yet. To force this action, click <a href="{$a}">this link</a>';
 $string['unenrolled'] = 'You are not enrolled in this course';
 $string['notallowed'] = 'You are not allowed to access this page';

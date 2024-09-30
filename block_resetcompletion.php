@@ -32,34 +32,75 @@ class block_resetcompletion extends block_base {
     }
 
     public function get_content() {
-        global $CFG, $USER;
+        global $CFG, $USER, $PAGE, $OUTPUT;
+
+        $force = optional_param('force',0,PARAM_INT);
+        $q = optional_param('q', '', PARAM_TEXT);
 
         if ($this->content !== null) {
             return $this->content;
         }
 
         $this->content = new stdClass;
+        $userid = $USER->id;
 
         if (block_resetcompletion_is_roleswitched()) {
 
             $info = new completion_info($this->page->course);
 
-            if (!$info->is_tracked_user($USER->id)) {
+            if (!$info->is_tracked_user($userid)) {
                 $this->content->text = get_string('unenrolled', 'block_resetcompletion');
                 return $this->content;
             }
 
-            if ($info->is_course_complete($USER->id)) {
+            if ($info->is_course_complete($userid) || $force) {
                 $this->content->text = get_string('resetcontenttext', 'block_resetcompletion');
                 $this->content->footer = '<br/><a href="' . $CFG->wwwroot . '/blocks/resetcompletion/reset_user_completion.php?course=' .
                     $this->page->course->id .
-                    '&sesskey=' . sesskey();
+                    '&sesskey=' . sesskey() .
+                    '&user=' . $userid;
                 $this->content->footer .= '">' . get_string('pluginname', 'block_resetcompletion')  . '</a>';
                 return $this->content;
             } else {
-                $this->content->text = get_string('resetincompletetext', 'block_resetcompletion');
+
+                $forceurl = new moodle_url($PAGE->url);
+                $forceurl->param('force', 1);
+
+                $this->content->text = get_string('resetincompletetext', 'block_resetcompletion', $forceurl->out());
                 return $this->content;
             }
+
+        } else if (is_siteadmin()) {
+
+            $html = '';
+
+            $data = [
+                'action' => new moodle_url($PAGE->url),
+                'inputname' => 'q',
+                'searchstring' => get_string('search'),
+                'hiddenfields' => [],
+                'query' => $q,
+            ];
+
+            // discover the URL parameters for the current page
+            $params = [];
+            parse_str(http_build_query($_GET), $params);
+            foreach ($params as $k => $v) {
+                $data['hiddenfields'][] = (object) ['name' => $k, 'value' => $v];
+            }
+
+            if ($this->page->context && $this->page->context->contextlevel !== CONTEXT_SYSTEM) {
+                $data['hiddenfields'][] = (object) ['name' => 'context', 'value' => $this->page->context->id];
+            }
+
+            // search for ALWAYS uses GET, so hidden fields replace the action parameters
+            $html .= $OUTPUT->render_from_template('core/search_input', $data);
+
+            if (!empty($q)) {
+                $html .= block_resetcompletion_find_users($this->page->course, $q);
+            }
+
+            $this->content->text = $html;
 
         }
 

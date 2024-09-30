@@ -24,99 +24,46 @@
 require_once('../../config.php');
 require_once($CFG->libdir.'/completionlib.php');
 require_once($CFG->dirroot . '/blocks/resetcompletion/lib.php');
+require_once($CFG->dirroot . '/blocks/resetcompletion/classes/event/reset_completion.php');
 
 defined('MOODLE_INTERNAL') || die();
 
 require_sesskey();
 $courseid = optional_param('course', 0, PARAM_INT);
+$userid = optional_param('user', $USER->id, PARAM_INT);
 $confirm = optional_param('confirm', 0, PARAM_BOOL);
 $PAGE->set_context(context_system::instance());
 $PAGE->set_url(new moodle_url('/blocks/resetcompletion/reset_user_completion.php', array('course' => $courseid)));
-$user = $USER->id;
-$course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
-global $DB;
+$user = \core_user::get_user($userid);
 
-if (!block_resetcompletion_is_roleswitched()) {
+if (!block_resetcompletion_is_roleswitched() && !is_siteadmin()) {
     die(get_string('notallowed' , 'block_resetcompletion'));
 }
 
 if ($confirm) {
-    $completion = new completion_info($course);
-    if (!$completion->is_enabled()) {
-        throw new moodle_exception('completionnotenabled', 'completion');
-    } else if (!$completion->is_tracked_user($user)) {
-        throw new moodle_exception('nottracked', 'completion');
-    }
-    
-    $dbman = $DB->get_manager();
 
-    // COMPLETION DATA
-    $DB->delete_records_select('course_modules_completion',
-            'coursemoduleid IN (SELECT id FROM mdl_course_modules WHERE course=?) AND userid=?',
-            array($courseid, $user));
-    $DB->delete_records('course_completions', array('course' => $courseid, 'userid' => $user));
-    $DB->delete_records('course_completion_crit_compl', array('course' => $courseid, 'userid' => $user));
-
-    // CHOICE ANSWERS
-    if ($dbman->table_exists('choice_answers')) {
-        $DB->delete_records_select('choice_answers',
-                'choiceid IN (SELECT id FROM mdl_choice WHERE course=?) AND userid=?',
-                array($courseid, $user));
-    }
-
-    //SCORM
-    if ($dbman->table_exists('scorm_scoes_track')) {
-        $DB->delete_records_select('scorm_scoes_track',
-                'scormid IN (SELECT id FROM mdl_scorm WHERE course=?) AND userid=?',
-                array($courseid, $user));
-    }
-
-    // QUIZ
-    if ($dbman->table_exists('quiz')) {
-        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-        $orphanedattempts = $DB->get_records_sql_menu("
-            SELECT id, uniqueid
-              FROM {quiz_attempts}
-            WHERE userid=$user AND quiz IN (SELECT id FROM mdl_quiz WHERE course=$courseid)");
-
-        if ($orphanedattempts) {
-            foreach ($orphanedattempts as $attemptid => $usageid) {
-                question_engine::delete_questions_usage_by_activity($usageid);
-                $DB->delete_records('quiz_attempts', array('id' => $attemptid));
-            }
-        }
-    }
-
-    // LESSONS
-    if ($dbman->table_exists('lesson_attempts')) {
-        $DB->delete_records_select('lesson_attempts',
-                'lessonid IN (SELECT id FROM mdl_lesson WHERE course=?) AND userid=?',
-                array($courseid, $user));
-    }
-    if ($dbman->table_exists('lesson_grades')) {
-        $DB->delete_records_select('lesson_grades',
-                'lessonid IN (SELECT id FROM mdl_lesson WHERE course=?) AND userid=?',
-                array($courseid, $user));
-    }
-
-    // CERTIFICATES
-    if ($dbman->table_exists('certificate_issues')) {
-        $DB->delete_records_select('certificate_issues',
-                'certificateid IN (SELECT id FROM mdl_certificate WHERE course=?) AND userid=?',
-                array($courseid, $user));
-    }
-
-    cache::make('core', 'completion')->purge();
+    block_resetcompletion_perform_reset($courseid, $userid);
     redirect($CFG->wwwroot . '/course/view.php?id=' . $courseid);
 
 } else {
+
+    $params = [
+        'course' => $courseid,
+        'confirm' => 1,
+        'sesskey' => sesskey(),
+        'user' => $userid
+    ];
+
     $strconfirm = get_string('resetconfirm', 'block_resetcompletion');
     $PAGE->set_title($strconfirm);
+    $course =  get_course($courseid);
     $PAGE->set_heading($course->fullname);
     $PAGE->navbar->add($strconfirm);
     echo $OUTPUT->header();
+    echo html_writer::tag('p','You are about to permanently delete all stored course data (excluding logs) for the user <b>' . fullname($user) . "</b>. They will have to start over in this course.");
     $buttoncontinue = new single_button(new moodle_url('/blocks/resetcompletion/reset_user_completion.php',
-        array('course' => $courseid, 'confirm' => 1, 'sesskey' => sesskey())), get_string('yes'), 'get');
+        $params,
+        ), get_string('yes'), 'get');
     $buttoncancel = new single_button(new moodle_url('/course/view.php', array('id' => $courseid)), get_string('no'), 'get');
     echo $OUTPUT->confirm(get_string('resetdescription', 'block_resetcompletion'), $buttoncontinue, $buttoncancel);
     echo $OUTPUT->footer();

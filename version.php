@@ -18,14 +18,14 @@
  * This file specifies version
  *
  * @package    block_resetcompletion
- * @copyright  2016 Andrew Park
+ * @copyright  2016 Andrew Park, 2022 Tim St Clair
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'block_resetcompletion'; // Recommended since 2.0.2 (MDL-26035). Required since 3.0 (MDL-48494).
-$plugin->version = 2016110900; // YYYYMMDDHH.
+$plugin->component = 'block_resetcompletion';
+$plugin->version =  2023050400; // YYYYMMDDHH.
 $plugin->requires = 2015051100;
 $plugin->dependencies = array(
     'mod_quiz' => ANY_VERSION,

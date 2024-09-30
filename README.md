@@ -19,6 +19,6 @@ https://moodle.org/plugins/local_recompletion
 
 ###  Changes
 
-September 2024: Added search, ability for admin to delete users
-May 2023: Updated version
-May 2022: Created
+- September 2024: Added search, ability for admin to delete users
+- May 2023: Updated version
+- May 2022: Created
